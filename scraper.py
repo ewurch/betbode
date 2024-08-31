@@ -5,6 +5,9 @@ from bs4 import BeautifulSoup
 import time
 import os
 from datetime import datetime, timedelta
+from model import Odd, engine
+from sqlalchemy.orm import Session
+
 
 HTML_FILE_PATH = 'html_cache/{url}.html'
 CACHE_DURATION = timedelta(minutes=5)
@@ -45,6 +48,35 @@ def is_cache_valid(url):
     file_mod_time = datetime.fromtimestamp(os.path.getmtime(HTML_FILE_PATH.format(url=url)))
     return datetime.now() - file_mod_time < CACHE_DURATION
 
+
+def save_odds_to_db(odds):
+    with Session(engine) as session:
+        for odd in odds:
+            odd_entry = (
+                session.query(Odd)
+                .filter(
+                    Odd.match_time == odd['match_time'], 
+                    Odd.home_team == odd['home'], 
+                    Odd.away_team == odd['away']
+                )
+            ).first()
+            if odd_entry:
+                odd_entry.home_odds = odd['odds']['home']
+                odd_entry.draw_odds = odd['odds']['draw']
+                odd_entry.away_odds = odd['odds']['away']
+            else:
+                odd_entry = Odd(
+                    match_time=odd['match_time'],
+                    home_team=odd['home'],
+                    away_team=odd['away'],
+                    home_odds=odd['odds']['home'],
+                    draw_odds=odd['odds']['draw'],
+                    away_odds=odd['odds']['away']
+            )
+            session.add(odd_entry)
+        session.commit()
+
+
 def scrape_matches():
     url = 'https://oddspedia.com/football/brazil/serie-a/odds'
     
@@ -60,6 +92,7 @@ def scrape_matches():
 
     matches = soup.find('div', id='match-odds')
     for match in matches.find_all('div', class_='match-list-item'):
+        match_time = match.find('span', class_='match-date__time').text.strip()
         teams = match.find_all('div', class_='match-team')
         home, away = (team.text.strip() for team in teams)
         odds = match.find_all('span', class_='odd__value')
@@ -68,7 +101,9 @@ def scrape_matches():
         home_odds, draw_odds, away_odds = odd_values
 
         match_odds = {
-            'match': f'{home} vs {away}', 
+            'match_time': match_time,
+            'home': home, 
+            'away': away,
             'odds': {
                 'home': home_odds, 
                 'draw': draw_odds, 
@@ -78,4 +113,6 @@ def scrape_matches():
         print(match_odds)  # Debug: Print the extracted odds
         matches_odds.append(match_odds)
     
+    save_odds_to_db(matches_odds)
+
     return matches_odds
