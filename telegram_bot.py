@@ -35,5 +35,8 @@ def send_roi_message(match: Odd):
         for match in matches:
             message += f"✅ {match.home_team} vs {match.away_team} - {match.roi*100:.2f}%\n"
 
-    send_message(message)
+    if message == MESSAGE_TEMPLATE:
+        pass
+    else:
+        send_message(message)
 

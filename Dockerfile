@@ -11,15 +11,20 @@ RUN apt-get update && apt-get install -y \
     unzip \
     curl \
     gnupg \
-    firefox-esr \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Download and install GeckoDriver
-RUN GECKO_DRIVER_VERSION=$(curl -sS https://api.github.com/repos/mozilla/geckodriver/releases/latest | grep 'tag_name' | cut -d\" -f4) && \
-    wget -q --continue -P /tmp "https://github.com/mozilla/geckodriver/releases/download/${GECKO_DRIVER_VERSION}/geckodriver-${GECKO_DRIVER_VERSION}-linux64.tar.gz" && \
-    tar -xzf /tmp/geckodriver-${GECKO_DRIVER_VERSION}-linux64.tar.gz -C /usr/local/bin/ && \
-    rm /tmp/geckodriver-${GECKO_DRIVER_VERSION}-linux64.tar.gz
+# Add Google Chrome's official repository and install Chrome
+RUN curl -sSL https://dl.google.com/linux/linux_signing_key.pub | apt-key add - && \
+    echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list && \
+    apt-get update && apt-get install -y google-chrome-stable && \
+    rm -rf /var/lib/apt/lists/*
+
+# Download and install ChromeDriver
+RUN CHROME_DRIVER_VERSION=$(curl -sS https://chromedriver.storage.googleapis.com/LATEST_RELEASE) && \
+    wget -q --continue -P /tmp "https://chromedriver.storage.googleapis.com/${CHROME_DRIVER_VERSION}/chromedriver_linux64.zip" && \
+    unzip /tmp/chromedriver_linux64.zip -d /usr/local/bin/ && \
+    rm /tmp/chromedriver_linux64.zip
 
 # Set display port to avoid crash
 ENV DISPLAY=:99
